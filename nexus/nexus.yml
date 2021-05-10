@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nexus
+  labels:
+    app: nexus-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nexus-server
+  template:
+    metadata:
+      labels:
+        app: nexus-server
+    spec:
+      initContainers:
+      - name: init-myservice
+        image: busybox:1.28  
+        command: ['sh', '-c', "chmod 777 /nexus-data"]
+        volumeMounts:
+        - name: nexus-data
+          mountPath: /nexus-data   
+      containers:
+        - name: nexus
+          image: sonatype/nexus3:latest
+          resources:
+            limits:
+              memory: "4Gi"
+              cpu: "1000m"
+            requests:
+              memory: "2Gi"
+              cpu: "500m"
+          ports:
+            - containerPort: 8081
+          volumeMounts:
+            - name: nexus-data
+              mountPath: /nexus-data
+      volumes:
+      - name: nexus-data
+        persistentVolumeClaim:
+          claimName: nexuspv-claim
+---          
+apiVersion: v1
+kind: Service
+metadata:
+  name: nexus-svc
+spec:
+  selector:
+    app: nexus-server
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8081
+  type: LoadBalancer                          

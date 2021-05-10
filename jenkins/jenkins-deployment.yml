@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jenkins
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jenkins
+  template:
+    metadata:
+      labels:
+        app: jenkins
+    spec:
+      initContainers:
+      - name: init-myservice
+        image: busybox:1.28  
+        command: ['sh', '-c', "chmod 777 /var/jenkins_home"]
+        volumeMounts:
+        - name: jenkins-home
+          mountPath: /var/jenkins_home
+      containers:
+      - name: jenkins
+        image: jenkins/jenkins
+        ports:
+          - name: http-port
+            containerPort: 8080
+          - name: jnlp-port
+            containerPort: 50000
+        volumeMounts:
+        - name: jenkins-home
+          mountPath: /var/jenkins_home
+      serviceAccountName: jenkins-build 
+      volumes:
+      - name: jenkins-home
+        persistentVolumeClaim:
+          claimName: jenkins-datapv-claim
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jenkins-master
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 80
+      targetPort: 8080
+      name: jenkins-master
+    - port: 50000
+      targetPort: 50000
+      name: jenkins-jnlp
+  selector:
+    app: jenkins
